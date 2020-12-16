@@ -1,0 +1,4 @@
+https://github.com/GabrielBeraldo/CustomSoftwareSerial
+https://github.com/finlaywashere/ArduinoSoftRS485
+https://github.com/finlaywashere/ArduinoSoftDMX
+
