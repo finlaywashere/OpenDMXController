@@ -23,50 +23,49 @@
 
 const int universeSize = 512;
 
-int brightness = 0;
-int fadeAmount = 5;
-
 DMXClass *dmx_1;
 DMXClass *dmx_2;
 
 void setup() {
-  //pinMode(3,OUTPUT);
-  //digitalWrite(3,HIGH);
-
   RS485Class *rs485_1 = new RS485Class(Serial1,18,A5,A5);
   RS485Class *rs485_2 = new RS485Class(Serial2,16,A7,A7);
   dmx_1 = new DMXClass(*rs485_1);
   dmx_2 = new DMXClass(*rs485_2);
   
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   // initialize the DMX library with the universe size
   if (!dmx_1->begin(universeSize)) {
-    Serial.println("Failed to initialize DMX!");
+    //Serial.println("Failed to initialize DMX!");
     while (1); // wait for ever
   }
   if (!dmx_2->begin(universeSize)) {
-    Serial.println("Failed to initialize DMX!");
+    //Serial.println("Failed to initialize DMX!");
     while (1); // wait for ever
   }
-  Serial.println("Initialized DMX!");
+  //Serial.println("Initialized DMX!");
 }
 
 void loop() {
-  // set the value of channel 2
   dmx_1->beginTransmission();
-  dmx_1->write(1, 255);
-  dmx_1->write(2, brightness);
-  dmx_1->endTransmission();
-
-  // change the brightness for the next round
-  brightness += fadeAmount;
-
-  // reverse fade direction when on edge of range
-  if (brightness <= 0 || brightness >= 255) {
-    fadeAmount = -fadeAmount;
+  dmx_2->beginTransmission();
+  Serial.print('a'); // I do not know why this works but it stops all my serial comms from breaking
+  if(Serial.available()){
+    byte cmd = Serial.read();
+    if(cmd == 1){
+      // Send
+      byte universe = Serial.read();
+      int channel = Serial.read() | (((int)Serial.read()) << 8);
+      byte value = Serial.read();
+      if(universe == 1){
+        dmx_1->write(channel,value);
+      }else if(universe == 2){
+        dmx_2->write(channel,value);
+      }
+    }
+    Serial.print('a');
   }
-
-  // delay for dimming effect
-  delay(30);
+  dmx_1->endTransmission();
+  dmx_2->endTransmission();
+  delay(10);
 }
