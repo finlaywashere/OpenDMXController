@@ -1,21 +1,18 @@
 /*
-  DMX Fade
+    Copyright (C) 2021 Finlay Maroney
 
-  This sketch fades the value of DMX channel 1 between 0 and 255 in steps to create a fade effect.
-  All other slots are set to a value of 0.
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-  Circuit:
-   - DMX light
-   - MKR board
-   - MKR 485 shield
-     - ISO GND connected to DMX light GND (pin 1)
-     - Y connected to DMX light Data + (pin 2)
-     - Z connected to DMX light Data - (pin 3)
-     - Jumper positions
-       - Z \/\/ Y set to ON
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-  created 5 July 2018
-  by Sandeep Mistry
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <ArduinoRS485.h> // the ArduinoDMX library depends on ArduinoRS485
