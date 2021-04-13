@@ -18,38 +18,50 @@
 #include <ArduinoRS485.h> // the ArduinoDMX library depends on ArduinoRS485
 #include <ArduinoDMX.h>
 
+#define LED3 40
+#define LED2 39
+#define LED1 4
+
 const int universeSize = 512;
 
 DMXClass *dmx_1;
 DMXClass *dmx_2;
 
 void setup() {
+  pinMode(LED3,OUTPUT);
+  pinMode(LED2,OUTPUT);
+  pinMode(LED1,OUTPUT);
   RS485Class *rs485_1 = new RS485Class(Serial1,18,A5,A5);
   RS485Class *rs485_2 = new RS485Class(Serial2,16,A7,A7);
   dmx_1 = new DMXClass(*rs485_1);
   dmx_2 = new DMXClass(*rs485_2);
   
-  Serial.begin(115200);
-
+  Serial.begin(57600);
+  
   // initialize the DMX library with the universe size
   if (!dmx_1->begin(universeSize)) {
     //Serial.println("Failed to initialize DMX!");
+    digitalWrite(LED3,HIGH);
     while (1); // wait for ever
   }
   if (!dmx_2->begin(universeSize)) {
     //Serial.println("Failed to initialize DMX!");
+    digitalWrite(LED3,HIGH);
     while (1); // wait for ever
   }
-  //Serial.println("Initialized DMX!");
+  Serial.println("Initialized DMX!");
+  digitalWrite(LED2,HIGH);
 }
 
 void loop() {
   dmx_1->beginTransmission();
   dmx_2->beginTransmission();
+  
   Serial.print('a'); // I do not know why this works but it stops all my serial comms from breaking
   if(Serial.available()){
+    digitalWrite(LED1,HIGH);
     byte cmd = Serial.read();
-    if(cmd == 1){
+    if(cmd == 1 || cmd == '1'){
       // Send
       byte universe = Serial.read();
       int channel = Serial.read() | (((int)Serial.read()) << 8);
@@ -64,5 +76,5 @@ void loop() {
   }
   dmx_1->endTransmission();
   dmx_2->endTransmission();
-  delay(10);
+  delay(100);
 }
