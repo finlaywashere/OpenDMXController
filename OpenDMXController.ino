@@ -20,15 +20,7 @@
 #include <HardwareSerial.h>
 #include <avr/boot.h>
 
-#define MAGIC_HIGH 0xBE
-#define MAGIC_LOW 0xEF
-#define PROTOCOL 2
-#define SOFT_REV_MAJOR 0
-#define SOFT_REV_MINOR 9
-#define HARD_REV 4
-
-
-void(* resetFunc) (void) = 0;
+//void(* resetFunc) (void) = 0;
 
 const int universeSize = 512;
 
@@ -48,22 +40,26 @@ void setup() {
 }
 int count = 0;
 void loop() {
-  if(Serial.available() || Serial3.available()){
-    HardwareSerial *serial;
-    if(Serial.available())
-      serial = &Serial;
-    else
-      serial = &Serial3;
-    
-    byte cmd = serial->read();
+  //TODO: Implement code path for receiving commands from Serial3
+  if(Serial.available()){
+    byte cmd = Serial.read();
     if(cmd == 1){
       // Write command
       // Wait for the data
-      while(serial->available() < 4){}
+      int count = 0;
+      while(Serial.available() < 4){
+        delay(1);
+        count++;
+        if(count >= 50){
+          for(int i = 0; i < 4; i++)
+            Serial.read();
+          return;
+        }
+      }
       // Send
-      int universe = serial->read();
-      int channel = serial->read() | (((int)serial->read()) << 8);
-      int value = serial->read();
+      int universe = Serial.read();
+      int channel = Serial.read() | (((int)Serial.read()) << 8);
+      int value = Serial.read();
       if(universe == 1){
         dmx_1->beginTransmission();
         dmx_1->write(channel,value);
@@ -73,30 +69,31 @@ void loop() {
         dmx_2->write(channel,value);
         dmx_2->endTransmission();
       }
-      serial->write(1);
+      Serial.write(1);
     }else if(cmd == 2){
       // SN command
-      serial->write(2);
+      Serial.write(2);
       for (uint8_t i = 14; i < 24; i += 1) {
-        serial->print(boot_signature_byte_get(i), HEX);
+        Serial.print(boot_signature_byte_get(i), HEX);
       }
     }else if(cmd == 3){
       // Reset command
-      serial->write(3);
-      resetFunc();
+      Serial.write(3);
+      Serial.flush();
+      //resetFunc();
     }else if(cmd == 4){
       // Identify command
-      serial->write(4);
-      serial->write(MAGIC_HIGH);
-      serial->write(MAGIC_LOW);
-      serial->write(PROTOCOL);
-      serial->write(SOFT_REV_MAJOR);
-      serial->write(SOFT_REV_MINOR);
-      serial->write(HARD_REV);
+      Serial.write(4);
+      Serial.write(0xFF); // Magic number
+      Serial.write(1); // Protocol rev
+      Serial.write(0); // Software major version
+      Serial.write(9); // Software minor version
+      Serial.write(4); // Hardware revision
+      Serial.write(2); // 2 universes
     }else if(cmd == 5){
       // Initialize command
       // This isn't in the setup function because the serial stuff isn't necessarily connected during the setup phase and errors need to be reported (so its not just broken mysteriously)
-      serial->write(5);
+      Serial.write(5);
       // initialize the DMX library with the universe size
       int code = 0;
       if (!dmx_1->begin(universeSize)) {
@@ -105,11 +102,11 @@ void loop() {
       if (!dmx_2->begin(universeSize)) {
         code = 254;
       }
-      serial->write(code); // This is currently the only self testing supported (maybe more will be added in future revisions
+      Serial.write(code); // This is currently the only self testing supported (maybe more will be added in future revisions
     }
   }
   count++;
-  if(count >= 50){
+  if(count >= 100){
     count = 0;
     dmx_1->beginTransmission();
     dmx_2->beginTransmission();
