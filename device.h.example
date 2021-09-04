@@ -1,0 +1,83 @@
+/*
+	This is an example device file for the OpenDMXController V5
+*/
+
+/*
+    Copyright (C) 2021 Finlay Maroney
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+#include <HardwareSerial.h>
+
+#define SERIAL_NUMBER 0x0105000000000001
+
+#define HARDWARE_VERSION 5
+
+#define UNIVERSE_COUNT 2
+
+#define CAP CAP_DMX | CAP_LED | CAP_EEPROM | CAP_SELFTEST | CAP_UPDATE_MAN | CAP_EXPANSION
+
+// Manual update specific stuff here
+
+#define UPDATE_URL "https://dmx.finlaym.xyz/update.php?version=" STR(VERSION_MAJOR) "." STR(VERSION_MINOR)
+
+// DMX specific stuff here
+
+HardwareSerial serialPorts[] = {
+	Serial1,
+	Serial2
+};
+int outputPins[] = {
+	18,A5,A5,
+	16,A7,A7
+};
+
+// LED specific stuff here
+
+#define LED_COUNT 4
+#define LED_USABLE 3
+
+#define LED_CAP LED_SET | LED_GET
+
+int leds[] = {
+	// Flags	RED	GREEN	BLUE	X	Y
+	LED_FIXED_COLOR | LED_POWER, 0, 255, 0, 0, 0,
+	LED_FIXED_COLOR, 0, 255, 0, 0, 1,
+	LED_FIXED_COLOR, 255, 0, 0, 0, 2,
+	LED_FIXED_COLOR, 255, 0, 0, 0, 3
+};
+int ledPins[] = {
+	4,
+	39,
+	40
+};
+
+// EEPROM specific stuff here
+
+#define EEPROM_START 0
+#define EEPROM_SIZE 4096 - EEPROM_START
+
+// Expansion port specific stuff here
+// Note: The expansion port is automatically disabled when debug mode is used
+
+int expansionPins[] = {
+	9,
+	8,
+	7,
+	6,
+	15,
+	14
+};
+HardwareSerial expansionSerial = Serial3;
