@@ -81,25 +81,28 @@ RS485Class *rs485[UNIVERSE_COUNT];
 DMXClass *dmx[UNIVERSE_COUNT];
 
 int code = 0;
+int started = 0;
 
 void setup() {
-  EEPROM.begin();
-
+  #if (CAP) & (CAP_EEPROM)
+    EEPROM.begin();
+  #endif
+  
+  Serial.begin(115200);
+  #if (CAP) & (CAP_EXPANSION) || defined (DEBUG_PORT)
+    #pragma message ( "Compiling with expansion support" )
+    // Start auxilliary serial port to receive commands from addons
+    Serial3.begin(115200);
+  #endif
+  
   // Setup output ports
   for(int i = 0; i < UNIVERSE_COUNT; i++){
-    rs485[i] = new RS485Class(serialPorts[i], outputPins[i*3], outputPins[i*3+1], outputPins[i*3+2]);
+    rs485[i] = new RS485Class(*serialPorts[i], outputPins[i*3], outputPins[i*3+1], outputPins[i*3+2]);
     dmx[i] = new DMXClass(*rs485[i]);
   }
   
-  Serial.begin(115200);
-  #if (CAP) & (CAP_EXPANSION) || DEBUG_PORT
-    #pragma message ( "Compiling with DMX support" )
-    // Start auxilliary serial port to receive commands from addons
-    expansionSerial.begin(115200);
-  #endif
-  
   #ifdef DEBUG_PORT
-    expansionSerial.println("Started controller!");
+    Serial3.println("Started controller!");
   #endif
 }
 int count = 0;
@@ -108,11 +111,12 @@ void loop() {
   if (Serial.available()) {
     int cmd = Serial.read();
     #ifdef DEBUG_PORT
-      expansionSerial.print("Received command with code ");
-      expansionSerial.print(cmd);
-      expansionSerial.println();
+      Serial3.print("Received command with code ");
+      Serial3.print(cmd);
+      Serial3.println();
+      Serial3.flush();
     #endif
-    if (CMD_SEND) {
+    if (cmd == CMD_SEND) {
       #if (CAP) & (CAP_DMX)
         #pragma message ( "Compiling with DMX support" )
         // Write command
@@ -125,7 +129,7 @@ void loop() {
             while (Serial.available())
               Serial.read();
             #ifdef DEBUG_PORT
-              expansionSerial.println("Timed out waiting for send command!");
+              Serial3.println("Timed out waiting for send command!");
             #endif
             return;
           }
@@ -136,13 +140,13 @@ void loop() {
         int value = Serial.read();
         int mode = Serial.read();
         #ifdef DEBUG_PORT
-          expansionSerial.print("Received send command for universe ");
-          expansionSerial.print(universe);
-          expansionSerial.print(" channel ");
-          expansionSerial.print(channel);
-          expansionSerial.print(" value ");
-          expansionSerial.print(value);
-          expansionSerial.println();
+          Serial3.print("Received send command for universe ");
+          Serial3.print(universe);
+          Serial3.print(" channel ");
+          Serial3.print(channel);
+          Serial3.print(" value ");
+          Serial3.print(value);
+          Serial3.println();
         #endif
         if (universe <= UNIVERSE_COUNT){
           int index = universe-1;
@@ -151,25 +155,25 @@ void loop() {
           dmx[index]->endTransmission();
         }else{
           #ifdef DEBUG_PORT
-            expansionSerial.print("Requested send to invalid universe");
-            expansionSerial.print(universe);
-            expansionSerial.println("!");
+            Serial3.print("Requested send to invalid universe");
+            Serial3.print(universe);
+            Serial3.println("!");
           #endif
         }
         Serial.write(CMD_SEND);
       #endif
-    } else if (CMD_SN) {
+    } else if (cmd == CMD_SN) {
       // SN command
       Serial.write(CMD_SN);
       for (uint8_t i = 0; i < 8; i++) {
         Serial.write((uint8_t) (SERIAL_NUMBER >> (i*8)));
       }
-    } else if (CMD_RESET) {
+    } else if (cmd == CMD_RESET) {
       // Reset command
       Serial.write(CMD_RESET);
       Serial.flush();
       resetFunc();
-    } else if (CMD_IDENT) {
+    } else if (cmd == CMD_IDENT) {
       // Identify command
       Serial.write(CMD_IDENT);
       Serial.write(0xFF); // Magic number
@@ -178,7 +182,7 @@ void loop() {
       Serial.write(VERSION_MINOR); // Software minor version
       Serial.write(HARDWARE_VERSION); // Hardware revision
       Serial.write(UNIVERSE_COUNT); // 2 universes
-    } else if (CMD_INIT) {
+    } else if (cmd == CMD_INIT) {
       #if (CAP) & (CAP_DMX)
         // Initialize command
         int count = 0;
@@ -189,14 +193,14 @@ void loop() {
             while (Serial.available())
               Serial.read();
             #ifdef DEBUG_PORT
-              expansionSerial.println("Timed out waiting for initialize command!");
+              Serial3.println("Timed out waiting for initialize command!");
             #endif
             return;
           }
         }
         universeSize = Serial.read() | (((int) Serial.read()) << 8); // Universe size is sent as 2 bytes
         // This isn't in the setup function because the serial stuff isn't necessarily connected during the setup phase and errors need to be reported (so its not just broken mysteriously)
-        Serial.write(CMD_INIT);
+        
         // initialize the DMX library with the universe size
         code = 0;
         for(int i = 0; i < UNIVERSE_COUNT; i++){
@@ -205,15 +209,18 @@ void loop() {
             break;
           }
         }
-        #ifdef DEBUG_PORT
-          expansionSerial.print("Received initialize command! Current code is ");
-          expansionSerial.print(code);
-          expansionSerial.println();
-        #endif
-        
+        started = 1;
+        Serial.write(CMD_INIT);
         Serial.write(code);
+        #ifdef DEBUG_PORT
+          Serial3.print("Received initialize command! Current code is ");
+          Serial3.print(code);
+          Serial3.print("\nUniverse size: ");
+          Serial3.print(universeSize);
+          Serial3.println();
+        #endif
       #endif
-    } else if (CMD_CAP){
+    } else if (cmd == CMD_CAP){
       // Capabilities command
       
       Serial.write(CMD_CAP); // Acknowledge command
@@ -222,7 +229,7 @@ void loop() {
       Serial.write((byte) (CAP >> 16));
       Serial.write((byte) (CAP >> 24));
       
-    } else if (CMD_LEDINFO){
+    } else if (cmd == CMD_LEDINFO){
       #if (CAP) & (CAP_LED)
         #pragma message ( "Compiling with LED support" )
         // LED info command
@@ -236,7 +243,7 @@ void loop() {
           }
         }
       #endif
-    } else if (CMD_LEDOP){
+    } else if (cmd == CMD_LEDOP){
       #if (CAP) & (CAP_LED)
         // LED get/set command
         // Wait for the data
@@ -248,7 +255,7 @@ void loop() {
             while (Serial.available())
               Serial.read();
             #ifdef DEBUG_PORT
-              expansionSerial.println("Timed out waiting for LED get/set command!");
+              Serial3.println("Timed out waiting for LED get/set command!");
             #endif
             return;
           }
@@ -287,7 +294,7 @@ void loop() {
           }
         }
       #endif
-    } else if (CMD_EEPROMINFO){
+    } else if (cmd == CMD_EEPROMINFO){
       #if (CAP) & (CAP_EEPROM)
         #pragma message ( "Compiling with EEPROM support" )
         // This controller advertizes EEPROM support to its host so support it
@@ -303,7 +310,7 @@ void loop() {
         
         Serial.write(EEPROM_READ | EEPROM_WRITE);
       #endif
-    } else if (CMD_EEPROMOP){
+    } else if (cmd == CMD_EEPROMOP){
       #if (CAP) & (CAP_EEPROM)
         // EEPROM read/write command
         // Wait for the data
@@ -315,7 +322,7 @@ void loop() {
             while (Serial.available())
               Serial.read();
             #ifdef DEBUG_PORT
-              expansionSerial.println("Timed out waiting for EEPROM read/write command!");
+              Serial3.println("Timed out waiting for EEPROM read/write command!");
             #endif
             return;
           }
@@ -340,7 +347,7 @@ void loop() {
           }
         }
       #endif
-    } else if (CMD_SELFTEST){
+    } else if (cmd == CMD_SELFTEST){
       #if (CAP) & (CAP_SELFTEST)
         #pragma message ( "Compiling with SELFTEST support" )
         Serial.write(CMD_SELFTEST);
@@ -363,18 +370,18 @@ void loop() {
             while (Serial.available())
               Serial.read();
             #ifdef DEBUG_PORT
-              expansionSerial.println("Timed out waiting for EEPROM read/write command!");
+              Serial3.println("Timed out waiting for EEPROM read/write command!");
             #endif
           }
         }
         int newMagic = rs485[1]->read() | (((int) rs485[1]->read()) << 8);
         if(newMagic != magic){
           #ifdef DEBUG_PORT
-            expansionSerial.print("Incorrect magic number for self test! Expected ");
-            expansionSerial.print(magic);
-            expansionSerial.print(" but got ");
-            expansionSerial.print(newMagic);
-            expansionSerial.println();
+            Serial3.print("Incorrect magic number for self test! Expected ");
+            Serial3.print(magic);
+            Serial3.print(" but got ");
+            Serial3.print(newMagic);
+            Serial3.println();
           #endif
           rs485[0]->noReceive();
           rs485[0]->end();
@@ -397,13 +404,18 @@ void loop() {
       #endif
     }
   }
-  count++;
-  if (count >= 100) {
-    count = 0;
-    for(int i = 0; i < UNIVERSE_COUNT; i++){
-      dmx[i]->beginTransmission();
-      dmx[i]->endTransmission();
+  
+  #if (CAP) & (CAP_DMX)
+    count++;
+    if (count >= 100 && started) {
+      count = 0;
+      for(int i = 0; i < UNIVERSE_COUNT; i++){
+        dmx[i]->beginTransmission();
+        dmx[i]->endTransmission();
+      }
+      Serial3.println("Triggered DMX keep alive");
     }
-  }
+  #endif
+  
   delay(1);
 }
