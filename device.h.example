@@ -1,5 +1,5 @@
 /*
-	This is an example device file for the OpenDMXController V5
+	This is an example config for a OpenDMXController V5
 */
 
 /*
@@ -35,13 +35,13 @@
 
 // DMX specific stuff here
 
-HardwareSerial serialPorts[] = {
-	Serial1,
-	Serial2
+HardwareSerial *serialPorts[] = {
+	&Serial2,
+	&Serial1
 };
 int outputPins[] = {
-	18,A5,A5,
-	16,A7,A7
+	16,A7,A7,
+	18,A5,A5
 };
 
 // LED specific stuff here
